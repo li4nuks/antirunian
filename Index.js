@@ -6,42 +6,42 @@ app.post('/webhook', async (req, res) => {
             const msg = body.message
             let shouldDelete = false
 
-            // 1. Проверка обычного текста сообщения (переводим в нижний регистр)
-            if (msg.text) {
-                const text = msg.text.toLowerCase()
-                if (text.includes('руниан')) {
-                    shouldDelete = true
-                }
+            // 1. Собираем текст отовсюду (обычный текст ИЛИ подпись к картинке/видео)
+            const fullText = (msg.text || msg.caption || '').toLowerCase()
+
+            if (fullText.includes('руниан')) {
+                shouldDelete = true
             }
 
-            // 2. Проверка скрытых кликабельных ссылок (Entities)
-            if (msg.entities) {
-                for (const entity of msg.entities) {
-                    // Ищем ссылки, зашитые в текст
-                    if (entity.type === 'text_link' && entity.url) {
-                        if (entity.url.toLowerCase().includes('runianews')) {
-                            shouldDelete = true
-                            break
-                        }
+            // 2. Собираем сущности (ссылки) отовсюду (из текста ИЛИ из подписи к медиа)
+            const allEntities = msg.entities || msg.caption_entities || []
+            
+            for (const entity of allEntities) {
+                if (entity.type === 'text_link' && entity.url) {
+                    if (entity.url.toLowerCase().includes('runianews')) {
+                        shouldDelete = true
+                        break
                     }
                 }
             }
 
-            // 3. Железобетонная проверка: Переслано ли сообщение из канала runianews напрямую
-            // Telegram использует объект forward_origin для пересланных сообщений
-            if (msg.forward_origin && msg.forward_origin.chat) {
-                const sourceChat = msg.forward_origin.chat
-                
-                // Проверяем по юзернейму канала
-                if (sourceChat.username && sourceChat.username.toLowerCase() === 'runianews') {
+            // 3. Проверка метаданных пересылки (работает, даже если текст вообще изменят)
+            // В Telegram API пересылка из каналов часто пакуется в forward_from_chat
+            if (msg.forward_from_chat) {
+                const chat = msg.forward_from_chat
+                if (chat.username && chat.username.toLowerCase() === 'runianews') {
                     shouldDelete = true
                 }
-                
-                // Альтернативно: можно заблокировать по ID канала, если он станет приватным
-                // if (sourceChat.id === -100XXXXXXXXXX) { shouldDelete = true }
+            }
+            // Дополнительная проверка для новых версий Telegram API (forward_origin)
+            if (msg.forward_origin && msg.forward_origin.chat) {
+                const chat = msg.forward_origin.chat
+                if (chat.username && chat.username.toLowerCase() === 'runianews') {
+                    shouldDelete = true
+                }
             }
 
-            // Если сработало любое из условий — удаляем
+            // Если сработало хоть одно условие — удаляем
             if (shouldDelete) {
                 try {
                     await bot.deleteMessage(msg.chat.id, msg.message_id)
@@ -50,7 +50,7 @@ app.post('/webhook', async (req, res) => {
                         'Сообщение из запрещенного канала удалено.'
                     )
                 } catch (e) {
-                    console.error('Ошибка удаления сообщения:', e.message)
+                    console.error('Не удалось удалить сообщение:', e.message)
                 }
             }
         }
@@ -58,7 +58,7 @@ app.post('/webhook', async (req, res) => {
         res.send('ok')
 
     } catch (err) {
-        console.error('Ошибка сервера вебхука:', err)
+        console.error('Ошибка вебхука:', err)
         res.send('error')
     }
 })
