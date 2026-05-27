@@ -8,6 +8,8 @@ const TOKEN = process.env.BOT_TOKEN
 
 const bot = new TelegramBot(TOKEN)
 
+bot.setWebHook(`${process.env.RENDER_EXTERNAL_URL}/webhook`); 
+
 // твои запрещённые слова
 const badWords = ['руниан']
 
