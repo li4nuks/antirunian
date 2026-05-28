@@ -21,14 +21,16 @@ app.post('/webhook', async (req, res) => {
                 let shouldDelete = false
                 let alertText = 'Сообщение из запрещенного канала удалено.';
 
+                // 1. Проверка на гифку (animation) или стикер (sticker)
                 if (msg.animation) {
                     shouldDelete = true
                     alertText = 'Гифки от этого пользователя запрещены.'
                 } else if (msg.sticker) {
-                    shouldDelete = true
+                    shouldDelete = false
                     alertText = 'Стикеры от этого пользователя запрещены.'
                 }
 
+                // 2. Проверка текста и подписи (РУНИАН)
                 const fullText = (msg.text || msg.caption || '').toLowerCase()
                 if (fullText.includes('руниан')) {
                     shouldDelete = true
@@ -62,10 +64,23 @@ app.post('/webhook', async (req, res) => {
                 // Удаляем, если сработало любое из условий
                 if (shouldDelete) {
                     try {
+                        // Удаляем сообщение пользователя
                         await bot.deleteMessage(msg.chat.id, msg.message_id)
-                        // await bot.sendMessage(msg.chat.id, alertText)
+                        
+                        // Отправляем предупреждение и сохраняем информацию о нем
+                        const sentMsg = await bot.sendMessage(msg.chat.id, alertText)
+                        
+                        // Таймер на удаление сообщения бота через 10 секунд
+                        setTimeout(async () => {
+                            try {
+                                await bot.deleteMessage(sentMsg.chat.id, sentMsg.message_id)
+                            } catch (err) {
+                                console.error('Не удалось удалить предупреждение бота:', err.message)
+                            }
+                        }, 10000); // 10000 миллисекунд = 10 секунд
+
                     } catch (e) {
-                        console.error('Не удалось удалить сообщение:', e.message)
+                        console.error('Не удалось обработать удаление:', e.message)
                     }
                 }
             }
