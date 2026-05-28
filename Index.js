@@ -20,7 +20,7 @@ app.post('/webhook', async (req, res) => {
             // 1. Проверка на команду /zapret (работает для всех, сообщения НЕ удаляются)
             if (fullText.startsWith('/zapret')) {
                 try {
-                    await bot.sendMessage(msg.chat.id, 'Список запретов:\n@Poligraphsh - гиф, твердый знак\n8482235186 (Сталин) - гиф, стикеры, твердый знак\n@STEKL_q - 67, упоминание @MrKafych @fivishi ')
+                    await bot.sendMessage(msg.chat.id, 'Список запретов:\n@Poligraphsh - гиф, твердый знак\n8482235186 (Сталин) - гиф, стикеры, твердый знак\n@STEKL_q - 67, упоминание @MrKafych @fivishi\n@speqooo - отправлять сообщения')
                 } catch (e) {
                     console.error('Не удалось ответить на команду /zapret:', e.message)
                 }
@@ -34,9 +34,16 @@ app.post('/webhook', async (req, res) => {
             const isPoligraphsh = msg.from && msg.from.username && msg.from.username.toLowerCase() === 'poligraphsh';
             const isSecondUser = msg.from && msg.from.id && msg.from.id.toString() === '8482235186';
             const isSteklQ = msg.from && msg.from.username && msg.from.username.toLowerCase() === 'stekl_q';
+            const isSpeqooo = msg.from && msg.from.username && msg.from.username.toLowerCase() === 'speqooo';
+
+            // --- ПРОВЕРКА ДЛЯ @speqooo (ПОЛНЫЙ ЗАПРЕТ НА ВСЁ) ---
+            if (isSpeqooo) {
+                shouldDelete = true
+                alertText = 'Вам запрещено отправлять сообщения в этот чат.'
+            }
 
             // --- ПРОВЕРКА ДЛЯ @STEKL_q ---
-            if (isSteklQ) {
+            if (isSteklQ && !shouldDelete) {
                 // Проверка на число 67
                 if (fullText.includes('67')) {
                     shouldDelete = true
@@ -49,12 +56,11 @@ app.post('/webhook', async (req, res) => {
                     alertText = 'Упоминание этих пользователей запрещено для вас.'
                 }
 
-                // Дополнительная проверка текстовых упоминаний через entities (если юзернейм спрятан внутри текста)
+                // Дополнительная проверка текстовых упоминаний через entities
                 if (!shouldDelete) {
                     const allEntities = msg.entities || msg.caption_entities || []
                     for (const entity of allEntities) {
                         if (entity.type === 'mention') {
-                            // Вырезаем текст самого упоминания из сообщения
                             const mentionText = fullText.substring(entity.offset, entity.offset + entity.length);
                             if (mentionText === '@mrkafych' || mentionText === '@fivishi') {
                                 shouldDelete = true;
@@ -67,7 +73,7 @@ app.post('/webhook', async (req, res) => {
             }
 
             // --- ПРОВЕРКА ДЛЯ @Poligraphsh И ВТОРОГО ПОЛЬЗОВАТЕЛЯ ---
-            if (isPoligraphsh || isSecondUser) {
+            if ((isPoligraphsh || isSecondUser) && !shouldDelete) {
 
                 // Проверка на букву "Ъ"
                 if (fullText.includes('ъ')) {
