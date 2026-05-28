@@ -17,39 +17,40 @@ app.post('/webhook', async (req, res) => {
             let shouldDelete = false
             let alertText = 'Сообщение из запрещенного канала удалено.';
 
-            // 1. Проверяем, входит ли отправитель в список "нарушителей" (по юзернейму или по ID)
-            const hasUsername = msg.from && msg.from.username && msg.from.username.toLowerCase() === 'poligraphsh';
-            const hasUserId = msg.from && msg.from.id && msg.from.id.toString() === '8482235186';
+            // Идентифицируем каждого пользователя отдельно
+            const isPoligraphsh = msg.from && msg.from.username && msg.from.username.toLowerCase() === 'poligraphsh';
+            const isSecondUser = msg.from && msg.from.id && msg.from.id.toString() === '8482235186';
 
-            // Ограничения срабатывают ТОЛЬКО если это один из двух целевых пользователей
-            if (hasUsername || hasUserId) {
+            // Ограничения срабатывают, если это один из двух целевых пользователей
+            if (isPoligraphsh || isSecondUser) {
                 
                 // Извлекаем текст и подписи к медиа для проверок текста
                 const fullText = (msg.text || msg.caption || '').toLowerCase()
 
-                // 2. Проверка на букву "Ъ"
+                // 1. Проверка на букву "Ъ" (для обоих)
                 if (fullText.includes('ъ')) {
                     shouldDelete = true
                     alertText = 'Буква "Ъ" запрещена для вас в этом чате.'
                 }
 
-                // 3. Проверка на гифку (animation) или стикер (sticker)
-                if (!shouldDelete) {
-                    if (msg.animation) {
-                        shouldDelete = true
-                        alertText = 'Гифки от этого пользователя запрещены.'
-                    } else if (msg.sticker) {
-                        shouldDelete = true
-                        alertText = 'Стикеры от этого пользователя запрещены.'
-                    }
+                // 2. Проверка на гифку (для обоих)
+                if (!shouldDelete && msg.animation) {
+                    shouldDelete = true
+                    alertText = 'Гифки от этого пользователя запрещены.'
                 }
 
-                // 4. Проверка текста на стоп-слово "руниан"
+                // 3. Проверка на стикер (ТОЛЬКО для второго пользователя, с Poligraphsh ограничение снято)
+                if (!shouldDelete && msg.sticker && isSecondUser) {
+                    shouldDelete = true
+                    alertText = 'Стикеры от этого пользователя запрещены.'
+                }
+
+                // 4. Проверка текста на стоп-слово "руниан" (для обоих)
                 if (!shouldDelete && fullText.includes('руниан')) {
                     shouldDelete = true
                 }
 
-                // 5. Проверка скрытых ссылок в тексте или медиа
+                // 5. Проверка скрытых ссылок в тексте или медиа (для обоих)
                 if (!shouldDelete) {
                     const allEntities = msg.entities || msg.caption_entities || []
                     for (const entity of allEntities) {
@@ -62,7 +63,7 @@ app.post('/webhook', async (req, res) => {
                     }
                 }
 
-                // 6. Проверка метаданных пересылки из канала
+                // 6. Проверка метаданных пересылки из канала (для обоих)
                 if (!shouldDelete) {
                     if (msg.forward_from_chat && msg.forward_from_chat.username) {
                         if (msg.forward_from_chat.username.toLowerCase() === 'runianews') {
