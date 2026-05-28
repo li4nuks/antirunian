@@ -20,7 +20,7 @@ app.post('/webhook', async (req, res) => {
             // 1. Проверка на команду /zapret (работает для всех, сообщения НЕ удаляются)
             if (fullText.startsWith('/zapret')) {
                 try {
-                    await bot.sendMessage(msg.chat.id, 'Список запретов:\n@Poligraphsh - гиф, твердый знак\n8482235186 (Сталин) - гиф, стикеры, твердый знак\n@STEKL_q - 67, упоминание @MrKafych @fivishi\n@speqooo - отправлять сообщения')
+                    await bot.sendMessage(msg.chat.id, 'Список запретов:\n@Poligraphsh - гиф, твердый знак\n8482235186 (Сталин) - гиф, стикеры, твердый знак\n@STEKL_q - 67, упоминание @MrKafych @fivishi, 6️⃣, 7️⃣, гиф\n@speqooo - отправлять сообщения')
                 } catch (e) {
                     console.error('Не удалось ответить на команду /zapret:', e.message)
                 }
@@ -48,6 +48,21 @@ app.post('/webhook', async (req, res) => {
                 if (fullText.includes('67')) {
                     shouldDelete = true
                     alertText = 'Число "67" запрещено для вас в этом чате.'
+                }
+                
+                if (fullText.includes('6️⃣')) {
+                    shouldDelete = true
+                    alertText = 'Число "67" запрещено для вас в этом чате.'
+                }
+
+                if (fullText.includes('7️⃣')) {
+                    shouldDelete = true
+                    alertText = 'Число "67" запрещено для вас в этом чате.'
+                }
+
+                if (!shouldDelete && msg.animation) {
+                    shouldDelete = true
+                    alertText = 'Гифки от этого пользователя запрещены.'
                 }
 
                 // Проверка на запрещенные юзернеймы
