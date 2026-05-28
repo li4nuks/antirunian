@@ -20,7 +20,7 @@ app.post('/webhook', async (req, res) => {
             // 1. Проверка на команду /zapret (работает для всех, сообщения НЕ удаляются)
             if (fullText.startsWith('/zapret')) {
                 try {
-                    await bot.sendMessage(msg.chat.id, 'Список запретов:\n@Poligraphsh - гиф, твердый знак\n8482235186 (Сталин) - гиф, стикеры, твердый знак\n@STEKL_q - 67')
+                    await bot.sendMessage(msg.chat.id, 'Список запретов:\n@Poligraphsh - гиф, твердый знак\n8482235186 (Сталин) - гиф, стикеры, твердый знак\n@STEKL_q - 67, упоминание @MrKafych @fivishi ')
                 } catch (e) {
                     console.error('Не удалось ответить на команду /zapret:', e.message)
                 }
@@ -37,9 +37,32 @@ app.post('/webhook', async (req, res) => {
 
             // --- ПРОВЕРКА ДЛЯ @STEKL_q ---
             if (isSteklQ) {
+                // Проверка на число 67
                 if (fullText.includes('67')) {
                     shouldDelete = true
                     alertText = 'Число "67" запрещено для вас в этом чате.'
+                }
+
+                // Проверка на запрещенные юзернеймы
+                if (!shouldDelete && (fullText.includes('@mrkafych') || fullText.includes('@fivishi'))) {
+                    shouldDelete = true
+                    alertText = 'Упоминание этих пользователей запрещено для вас.'
+                }
+
+                // Дополнительная проверка текстовых упоминаний через entities (если юзернейм спрятан внутри текста)
+                if (!shouldDelete) {
+                    const allEntities = msg.entities || msg.caption_entities || []
+                    for (const entity of allEntities) {
+                        if (entity.type === 'mention') {
+                            // Вырезаем текст самого упоминания из сообщения
+                            const mentionText = fullText.substring(entity.offset, entity.offset + entity.length);
+                            if (mentionText === '@mrkafych' || mentionText === '@fivishi') {
+                                shouldDelete = true;
+                                alertText = 'Упоминание этих пользователей запрещено для вас.';
+                                break;
+                            }
+                        }
+                    }
                 }
             }
 
