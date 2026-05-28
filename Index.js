@@ -8,7 +8,6 @@ app.use(express.json());
 const token = process.env.BOT_TOKEN;
 const bot = new TelegramBot(token); 
 
-// Исправленный вебхук с таргетом на одного пользователя:
 app.post('/webhook', async (req, res) => {
     try {
         const body = req.body
@@ -18,15 +17,21 @@ app.post('/webhook', async (req, res) => {
             // Безопасно проверяем, что сообщение отправил именно @Poligraphsh
             const isTargetUser = msg.from && msg.from.username && msg.from.username.toLowerCase() === 'poligraphsh';
 
-            // Если это нужный пользователь, запускаем проверки на запрещенный контент
             if (isTargetUser) {
                 let shouldDelete = false
-                const fullText = (msg.text || msg.caption || '').toLowerCase()
 
+                // 1. Проверка на гифку (в API Telegram это объект animation)
+                if (msg.animation) {
+                    shouldDelete = true
+                }
+
+                // 2. Проверка текста и подписи (РУНИАН)
+                const fullText = (msg.text || msg.caption || '').toLowerCase()
                 if (fullText.includes('руниан')) {
                     shouldDelete = true
                 }
 
+                // 3. Проверка скрытых ссылок
                 const allEntities = msg.entities || msg.caption_entities || []
                 for (const entity of allEntities) {
                     if (entity.type === 'text_link' && entity.url) {
@@ -37,6 +42,7 @@ app.post('/webhook', async (req, res) => {
                     }
                 }
 
+                // 4. Проверка метаданных пересылки
                 if (msg.forward_from_chat) {
                     const chat = msg.forward_from_chat
                     if (chat.username && chat.username.toLowerCase() === 'runianews') {
@@ -50,11 +56,17 @@ app.post('/webhook', async (req, res) => {
                     }
                 }
 
-                // Удаляем, если условия совпали
+                // Удаляем, если сработало любое из условий
                 if (shouldDelete) {
                     try {
                         await bot.deleteMessage(msg.chat.id, msg.message_id)
-                        await bot.sendMessage(msg.chat.id, 'Сообщение из запрещенного канала удалено.')
+                        
+                        // Меняем текст уведомления в зависимости от того, что удалили
+                        const alertText = msg.animation 
+                            ? 'Гифки от этого пользователя запрещены.' 
+                            : 'Сообщение из запрещенного канала удалено.';
+                            
+                        await bot.sendMessage(msg.chat.id, alertText)
                     } catch (e) {
                         console.error('Не удалось удалить сообщение:', e.message)
                     }
@@ -68,7 +80,6 @@ app.post('/webhook', async (req, res) => {
     }
 });
 
-// Запуск сервера на порту Render
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Сервер запущен на порту ${PORT}`);
