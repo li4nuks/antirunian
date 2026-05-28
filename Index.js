@@ -2,18 +2,20 @@ app.post('/webhook', async (req, res) => {
     try {
         const body = req.body
 
-        if (body.message) {
-            const msg = body.message
+        // Извлекаем объект сообщения, независимо от его типа
+        const msg = body.message || body.channel_post || body.edited_message || body.edited_channel_post
+
+        if (msg) {
             let shouldDelete = false
 
-            // 1. Собираем текст отовсюду (обычный текст ИЛИ подпись к картинке/видео)
+            // 1. Собираем текст и подписи к медиа
             const fullText = (msg.text || msg.caption || '').toLowerCase()
 
             if (fullText.includes('руниан')) {
                 shouldDelete = true
             }
 
-            // 2. Собираем сущности (ссылки) отовсюду (из текста ИЛИ из подписи к медиа)
+            // 2. Проверяем скрытые ссылки в тексте и картинках
             const allEntities = msg.entities || msg.caption_entities || []
             
             for (const entity of allEntities) {
@@ -25,15 +27,14 @@ app.post('/webhook', async (req, res) => {
                 }
             }
 
-            // 3. Проверка метаданных пересылки (работает, даже если текст вообще изменят)
-            // В Telegram API пересылка из каналов часто пакуется в forward_from_chat
+            // 3. Проверка метаданных пересылки
             if (msg.forward_from_chat) {
                 const chat = msg.forward_from_chat
                 if (chat.username && chat.username.toLowerCase() === 'runianews') {
                     shouldDelete = true
                 }
             }
-            // Дополнительная проверка для новых версий Telegram API (forward_origin)
+            
             if (msg.forward_origin && msg.forward_origin.chat) {
                 const chat = msg.forward_origin.chat
                 if (chat.username && chat.username.toLowerCase() === 'runianews') {
@@ -41,7 +42,7 @@ app.post('/webhook', async (req, res) => {
                 }
             }
 
-            // Если сработало хоть одно условие — удаляем
+            // Удаление при совпадении условий
             if (shouldDelete) {
                 try {
                     await bot.deleteMessage(msg.chat.id, msg.message_id)
