@@ -17,79 +17,86 @@ app.post('/webhook', async (req, res) => {
             let shouldDelete = false
             let alertText = 'Сообщение из запрещенного канала удалено.';
 
-            // Извлекаем текст и подписи к медиа для проверок текста
-            const fullText = (msg.text || msg.caption || '').toLowerCase()
+            // 1. Проверяем, входит ли отправитель в список "нарушителей" (по юзернейму или по ID)
+            const hasUsername = msg.from && msg.from.username && msg.from.username.toLowerCase() === 'poligraphsh';
+            const hasUserId = msg.from && msg.from.id && msg.from.id.toString() === '8482235186';
 
-            // --- ОБЩАЯ ПРОВЕРКА (ДЛЯ ВСЕХ ПОЛЬЗОВАТЕЛЕЙ) ---
-            if (fullText.includes('ъ')) {
-                shouldDelete = true
-                alertText = 'Буква "Ъ" запрещена в этом чате.'
-            }
+            // Ограничения срабатывают ТОЛЬКО если это один из двух целевых пользователей
+            if (hasUsername || hasUserId) {
+                
+                // Извлекаем текст и подписи к медиа для проверок текста
+                const fullText = (msg.text || msg.caption || '').toLowerCase()
 
-            // --- ПРОВЕРКА ТОЛЬКО ДЛЯ ПОЛЬЗОВАТЕЛЯ @Poligraphsh ---
-            const isTargetUser = msg.from && msg.from.username && msg.from.username.toLowerCase() === 'poligraphsh';
-
-            if (isTargetUser && !shouldDelete) {
-                // 1. Проверка на гифку (animation) или стикер (sticker)
-                if (msg.animation) {
+                // 2. Проверка на букву "Ъ"
+                if (fullText.includes('ъ')) {
                     shouldDelete = true
-                    alertText = 'Гифки от этого пользователя запрещены.'
-                } else if (msg.sticker) {
-                    shouldDelete = true
-                    alertText = 'Стикеры от этого пользователя запрещены.'
+                    alertText = 'Буква "Ъ" запрещена для вас в этом чате.'
                 }
 
-                // 2. Проверка текста (РУНИАН)
-                if (fullText.includes('руниан')) {
+                // 3. Проверка на гифку (animation) или стикер (sticker)
+                if (!shouldDelete) {
+                    if (msg.animation) {
+                        shouldDelete = true
+                        alertText = 'Гифки от этого пользователя запрещены.'
+                    } else if (msg.sticker) {
+                        shouldDelete = true
+                        alertText = 'Стикеры от этого пользователя запрещены.'
+                    }
+                }
+
+                // 4. Проверка текста на стоп-слово "руниан"
+                if (!shouldDelete && fullText.includes('руниан')) {
                     shouldDelete = true
                 }
 
-                // 3. Проверка скрытых ссылок
-                const allEntities = msg.entities || msg.caption_entities || []
-                for (const entity of allEntities) {
-                    if (entity.type === 'text_link' && entity.url) {
-                        if (entity.url.toLowerCase().includes('runianews')) {
+                // 5. Проверка скрытых ссылок в тексте или медиа
+                if (!shouldDelete) {
+                    const allEntities = msg.entities || msg.caption_entities || []
+                    for (const entity of allEntities) {
+                        if (entity.type === 'text_link' && entity.url) {
+                            if (entity.url.toLowerCase().includes('runianews')) {
+                                shouldDelete = true
+                                break
+                            }
+                        }
+                    }
+                }
+
+                // 6. Проверка метаданных пересылки из канала
+                if (!shouldDelete) {
+                    if (msg.forward_from_chat && msg.forward_from_chat.username) {
+                        if (msg.forward_from_chat.username.toLowerCase() === 'runianews') {
                             shouldDelete = true
-                            break
+                        }
+                    }
+                    if (msg.forward_origin && msg.forward_origin.chat && msg.forward_origin.chat.username) {
+                        if (msg.forward_origin.chat.username.toLowerCase() === 'runianews') {
+                            shouldDelete = true
                         }
                     }
                 }
 
-                // 4. Проверка метаданных пересылки
-                if (msg.forward_from_chat) {
-                    const chat = msg.forward_from_chat
-                    if (chat.username && chat.username.toLowerCase() === 'runianews') {
-                        shouldDelete = true
-                    }
-                }
-                if (msg.forward_origin && msg.forward_origin.chat) {
-                    const chat = msg.forward_origin.chat
-                    if (chat.username && chat.username.toLowerCase() === 'runianews') {
-                        shouldDelete = true
-                    }
-                }
-            }
+                // --- БЛОК УДАЛЕНИЯ И ТАЙМЕРА ---
+                if (shouldDelete) {
+                    try {
+                        // Удаляем запрещенное сообщение
+                        await bot.deleteMessage(msg.chat.id, msg.message_id)
+                        
+                        // Отправляем предупреждение
+                        const sentMsg = await bot.sendMessage(msg.chat.id, alertText)
+                        
+                        // Автоматически удаляем предупреждение бота через 10 секунд
+                        setTimeout(async () => {
+                            try {
+                                await bot.deleteMessage(sentMsg.chat.id, sentMsg.message_id)
+                            } catch (err) {
+                                console.error('Не удалось удалить предупреждение бота:', err.message)
+                            }
+                        }, 10000);
 
-            // --- БЛОК УДАЛЕНИЯ И ТАЙМЕРА ---
-            if (shouldDelete) {
-                try {
-                    // Удаляем запрещенное сообщение
-                    await bot.deleteMessage(msg.chat.id, msg.message_id)
-                    
-                    // Отправляем предупреждение
-                    const sentMsg = await bot.sendMessage(msg.chat.id, alertText)
-                    
-                    // Удаляем предупреждение бота через 10 секунд
-                    setTimeout(async () => {
-                        try {
-                            // await bot.deleteMessage(sentMsg.chat.id, sentMsg.message_id)
-                        } catch (err) {
-                            console.error('Не удалось удалить предупреждение бота:', err.message)
-                        }
-                    }, 10000);
-
-                } catch (e) {
-                    console.error('Не удалось обработать удаление:', e.message)
+                    } catch (e) {
+                        console.error('Не удалось обработать удаление:', e.message)
+                    }
                 }
             }
         }
