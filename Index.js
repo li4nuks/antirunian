@@ -19,10 +19,15 @@ app.post('/webhook', async (req, res) => {
 
             if (isTargetUser) {
                 let shouldDelete = false
+                let alertText = 'Сообщение из запрещенного канала удалено.';
 
-                // 1. Проверка на гифку (в API Telegram это объект animation)
+                // 1. Проверка на гифку (animation) или стикер (sticker)
                 if (msg.animation) {
                     shouldDelete = true
+                    alertText = 'Гифки от этого пользователя запрещены.'
+                } else if (msg.sticker) {
+                    shouldDelete = true
+                    alertText = 'Стикеры от этого пользователя запрещены.'
                 }
 
                 // 2. Проверка текста и подписи (РУНИАН)
@@ -60,12 +65,6 @@ app.post('/webhook', async (req, res) => {
                 if (shouldDelete) {
                     try {
                         await bot.deleteMessage(msg.chat.id, msg.message_id)
-                        
-                        // Меняем текст уведомления в зависимости от того, что удалили
-                        const alertText = msg.animation 
-                            ? 'Гифки от этого пользователя запрещены.' 
-                            : 'Сообщение из запрещенного канала удалено.';
-                            
                         await bot.sendMessage(msg.chat.id, alertText)
                     } catch (e) {
                         console.error('Не удалось удалить сообщение:', e.message)
