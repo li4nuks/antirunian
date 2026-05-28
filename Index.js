@@ -21,7 +21,6 @@ app.post('/webhook', async (req, res) => {
                 let shouldDelete = false
                 let alertText = 'Сообщение из запрещенного канала удалено.';
 
-                // 1. Проверка на гифку (animation) или стикер (sticker)
                 if (msg.animation) {
                     shouldDelete = true
                     alertText = 'Гифки от этого пользователя запрещены.'
@@ -30,7 +29,6 @@ app.post('/webhook', async (req, res) => {
                     alertText = 'Стикеры от этого пользователя запрещены.'
                 }
 
-                // 2. Проверка текста и подписи (РУНИАН)
                 const fullText = (msg.text || msg.caption || '').toLowerCase()
                 if (fullText.includes('руниан')) {
                     shouldDelete = true
@@ -65,7 +63,7 @@ app.post('/webhook', async (req, res) => {
                 if (shouldDelete) {
                     try {
                         await bot.deleteMessage(msg.chat.id, msg.message_id)
-                        await bot.sendMessage(msg.chat.id, alertText)
+                        // await bot.sendMessage(msg.chat.id, alertText)
                     } catch (e) {
                         console.error('Не удалось удалить сообщение:', e.message)
                     }
