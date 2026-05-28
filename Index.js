@@ -88,7 +88,7 @@ app.post('/webhook', async (req, res) => {
                         // Автоматически удаляем предупреждение бота через 10 секунд
                         setTimeout(async () => {
                             try {
-                                // await bot.deleteMessage(sentMsg.chat.id, sentMsg.message_id)
+                                await bot.deleteMessage(sentMsg.chat.id, sentMsg.message_id)
                             } catch (err) {
                                 console.error('Не удалось удалить предупреждение бота:', err.message)
                             }
