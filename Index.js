@@ -20,47 +20,56 @@ app.post('/webhook', async (req, res) => {
             // 1. Проверка на команду /zapret (работает для всех, сообщения НЕ удаляются)
             if (fullText.startsWith('/zapret')) {
                 try {
-                    await bot.sendMessage(msg.chat.id, 'Список запретов:\n@Poligraphsh - гиф, твердый знак\n8482235186 (Сталин) - гиф, стикеры, твердый знак')
+                    await bot.sendMessage(msg.chat.id, 'Список запретов:\n@Poligraphsh - гиф, твердый знак\n8482235186 (Сталин) - гиф, стикеры, твердый знак\n@STEKL_q - 67')
                 } catch (e) {
                     console.error('Не удалось ответить на команду /zapret:', e.message)
                 }
-                return res.send('ok') // Завершаем обработку, чтобы не проверять команду на запрещенные символы
+                return res.send('ok')
             }
 
             let shouldDelete = false
             let alertText = 'Сообщение из запрещенного канала удалено.';
 
-            // Идентифицируем каждого пользователя отдельно
+            // Идентифицируем пользователей
             const isPoligraphsh = msg.from && msg.from.username && msg.from.username.toLowerCase() === 'poligraphsh';
             const isSecondUser = msg.from && msg.from.id && msg.from.id.toString() === '8482235186';
+            const isSteklQ = msg.from && msg.from.username && msg.from.username.toLowerCase() === 'stekl_q';
 
-            // Ограничения срабатывают, если это один из двух целевых пользователей
+            // --- ПРОВЕРКА ДЛЯ @STEKL_q ---
+            if (isSteklQ) {
+                if (fullText.includes('67')) {
+                    shouldDelete = true
+                    alertText = 'Число "67" запрещено для вас в этом чате.'
+                }
+            }
+
+            // --- ПРОВЕРКА ДЛЯ @Poligraphsh И ВТОРОГО ПОЛЬЗОВАТЕЛЯ ---
             if (isPoligraphsh || isSecondUser) {
 
-                // 2. Проверка на букву "Ъ" (для обоих)
+                // Проверка на букву "Ъ"
                 if (fullText.includes('ъ')) {
                     shouldDelete = true
                     alertText = 'Буква "Ъ" запрещена для вас в этом чате.'
                 }
 
-                // 3. Проверка на гифку (для обоих)
+                // Проверка на гифку
                 if (!shouldDelete && msg.animation) {
                     shouldDelete = true
                     alertText = 'Гифки от этого пользователя запрещены.'
                 }
 
-                // 4. Проверка на стикер (ТОЛЬКО для второго пользователя)
+                // Проверка на стикер (ТОЛЬКО для второго пользователя)
                 if (!shouldDelete && msg.sticker && isSecondUser) {
                     shouldDelete = true
                     alertText = 'Стикеры от этого пользователя запрещены.'
                 }
 
-                // 5. Проверка текста на стоп-слово "руниан" (для обоих)
+                // Проверка текста на стоп-слово "руниан"
                 if (!shouldDelete && fullText.includes('руниан')) {
                     shouldDelete = true
                 }
 
-                // 6. Проверка скрытых ссылок в тексте или медиа (для обоих)
+                // Проверка скрытых ссылок
                 if (!shouldDelete) {
                     const allEntities = msg.entities || msg.caption_entities || []
                     for (const entity of allEntities) {
@@ -73,7 +82,7 @@ app.post('/webhook', async (req, res) => {
                     }
                 }
 
-                // 7. Проверка метаданных пересылки из канала (для обоих)
+                // Проверка метаданных пересылки
                 if (!shouldDelete) {
                     if (msg.forward_from_chat && msg.forward_from_chat.username) {
                         if (msg.forward_from_chat.username.toLowerCase() === 'runianews') {
@@ -86,28 +95,28 @@ app.post('/webhook', async (req, res) => {
                         }
                     }
                 }
+            }
 
-                // --- БЛОК УДАЛЕНИЯ И ТАЙМЕРА ---
-                if (shouldDelete) {
-                    try {
-                        // Удаляем запрещенное сообщение
-                        await bot.deleteMessage(msg.chat.id, msg.message_id)
-                        
-                        // Отправляем предупреждение
-                        const sentMsg = await bot.sendMessage(msg.chat.id, alertText)
-                        
-                        // Автоматически удаляем предупреждение бота через 10 секунд
-                        setTimeout(async () => {
-                            try {
-                                await bot.deleteMessage(sentMsg.chat.id, sentMsg.message_id)
-                            } catch (err) {
-                                console.error('Не удалось удалить предупреждение бота:', err.message)
-                            }
-                        }, 10000);
+            // --- БЛОК УДАЛЕНИЯ И ТАЙМЕРА ---
+            if (shouldDelete) {
+                try {
+                    // Удаляем запрещенное сообщение
+                    await bot.deleteMessage(msg.chat.id, msg.message_id)
+                    
+                    // Отправляем предупреждение
+                    const sentMsg = await bot.sendMessage(msg.chat.id, alertText)
+                    
+                    // Автоматически удаляем предупреждение бота через 10 секунд
+                    setTimeout(async () => {
+                        try {
+                            await bot.deleteMessage(sentMsg.chat.id, sentMsg.message_id)
+                        } catch (err) {
+                            console.error('Не удалось удалить предупреждение бота:', err.message)
+                        }
+                    }, 10000);
 
-                    } catch (e) {
-                        console.error('Не удалось обработать удаление:', e.message)
-                    }
+                } catch (e) {
+                    console.error('Не удалось обработать удаление:', e.message)
                 }
             }
         }
