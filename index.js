@@ -10,7 +10,6 @@ const MONGO_URI = process.env.MONGO_URI;
 
 const bot = new TelegramBot(token);
 
-// ─── MongoDB ──────────────────────────────────────────────────────────────────
 let db = null;
 
 async function connectDB() {
